@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+        <title>Dual camera simulator</title>
+        <link rel="stylesheet" href="main.css">
+		<script src="calculator.js"></script>
+		<script src="drawer.js"></script>
+    </head>
+    <body>    
+        <canvas id="screen" class="screen" width="1024" height="768"></canvas>
+		<br />
+		<div class="panel">
+			<div class="control">
+				<label class="label">Radius:</label>
+				<input id="radiusRange" type="range" class="range" min="0.5" max="2" step="0.01" value="1" />
+				<input id="radiusValue" type="text" class="value" value="1" />
+				<span class="unit">[m]</span>
+			</div>
+			<div class="control">
+				<label class="label">Depth:</label>
+				<input id="depthRange" type="range" class="range" min="0" max="3" step="0.01" value="1" />
+				<input id="depthValue" type="text" class="value" value="1" />
+				<span class="unit">[m]</span>
+			</div>
+			<div class="control">
+				<label class="label">Aperture angle:</label>
+				<input id="apertureAngleRange" type="range" class="range" min="90" max="180" step="0.1" value="120" />
+				<input id="apertureAngleValue" type="text" class="value" value="120" />
+				<span class="unit">[degrees]</span>
+			</div>
+			<div class="control">
+				<label class="label">Vision angle:</label>
+				<input id="visionAngleRange" type="range" class="range" min="5" max="90" step="0.1" value="15" />
+				<input id="visionAngleValue" type="text" class="value" value="15" />
+				<span class="unit">[degrees]</span>
+			</div>
+			<div class="control">
+				<label class="label">Object offset:</label>
+				<input id="objectOffsetRange" type="range" class="range" min="-1" max="1" step="0.01" value="0.5" />
+				<input id="objectOffsetValue" type="text" class="value" value="50" />
+				<span class="unit">%</span>
+			</div>
+		</div>
+		<script>
+
+			'use strict';
+
+			const xCenter = 1024 / 2;
+			const yCenter = 768 / 2;
+			
+			const scale = 300.0;
+
+			var radius = 1.0;
+			var depth = 1.0;
+			var apertureAngle = 152; // 170.0;
+			var visionAngle = 26; // 15.0;
+			var objectOffset = 0.5;
+
+			var hRadiusRange = document.getElementById( 'radiusRange' );
+			var hRadiusValue = document.getElementById( 'radiusValue' );
+			
+			var hDepthRange = document.getElementById( 'depthRange' );
+			var hDepthValue = document.getElementById( 'depthValue' );
+			
+			var hApertureAngleRange = document.getElementById( 'apertureAngleRange' );
+			var hApertureAngleValue = document.getElementById( 'apertureAngleValue' );
+			
+			var hVisionAngleRange = document.getElementById( 'visionAngleRange' );
+			var hVisionAngleValue = document.getElementById( 'visionAngleValue' );
+			
+			var hObjectOffsetRange = document.getElementById( 'objectOffsetRange' );
+			var hObjectOffsetValue = document.getElementById( 'objectOffsetValue' );
+
+			hRadiusRange.onchange = hRadiusRange.oninput = function()
+			{
+				var value = parseFloat( hRadiusRange.value );
+			
+				radius = value;
+				hRadiusValue.value = value;
+
+				redraw();
+			};
+			
+			hDepthRange.onchange = hDepthRange.oninput = function()
+			{
+				var value = parseFloat( hDepthRange.value );
+			
+				depth = value;
+				hDepthValue.value = value;
+				
+				redraw();
+			};
+			
+			hApertureAngleRange.onchange = hApertureAngleRange.oninput = function()
+			{
+				var value = parseFloat( hApertureAngleRange.value );
+			
+				apertureAngle = value;
+				hApertureAngleValue.value = value;
+
+				redraw();
+			};
+			
+			hVisionAngleRange.onchange = hVisionAngleRange.oninput = function()
+			{
+				var value = parseFloat( hVisionAngleRange.value );
+			
+				visionAngle = value;
+				hVisionAngleValue.value = value;
+
+				redraw();
+			};
+			
+			hObjectOffsetRange.onchange = hObjectOffsetRange.oninput = function()
+			{
+				var value = parseFloat( hObjectOffsetRange.value );
+			
+				objectOffset = value;
+				hObjectOffsetValue.value = value;
+
+				redraw();
+			};
+
+			hRadiusRange.value = radius;
+			hRadiusValue.value = radius;
+			
+			hDepthRange.value = depth;
+			hDepthValue.value = depth;
+
+			hApertureAngleRange.value = apertureAngle;
+			hApertureAngleValue.value = apertureAngle;
+			
+			hVisionAngleRange.value = visionAngle;
+			hVisionAngleValue.value = visionAngle;
+			
+			hObjectOffsetRange.value = objectOffset;
+			hObjectOffsetValue.value = objectOffset;
+
+			var hScreen = document.getElementById( 'screen' );
+			var context = hScreen.getContext( '2d' );
+			
+			function drawText( x, y, text )
+			{
+				context.save();
+				
+				context.font = '14px Georgia';
+				context.fillText( text, x, y );
+				
+				context.restore();
+			}
+
+			function redraw()
+			{
+				var alfa = apertureAngle * 0.017453293;
+				var beta = visionAngle * 0.017453293;
+				
+				var calculator = new Calculator( alfa, beta, radius, depth );
+				
+				var drawer1 = new Drawer( context, radius, depth, 0.0, beta );
+				var drawer2 = new Drawer( context, radius, depth, alfa - Math.PI, beta );
+
+				context.save();
+				
+				context.clearRect( 0, 0, hScreen.width, hScreen.height );
+				context.translate( xCenter, yCenter );
+				
+				drawer1.drawScreen();
+				drawer2.drawScreen();
+				
+				var projectedOffset = calculator.calculate( objectOffset );
+
+				drawer1.drawPoint( objectOffset, 8.0 );
+				
+				if( projectedOffset != null )
+					drawer2.drawPoint( projectedOffset, 4.0 );
+				
+				context.restore();
+				
+				drawText( 10, 20, 'LEFT SCREEN:' );
+				drawText( 30, 40, 'Pixel offset: ' + objectOffset );
+				
+				drawText( 10, 70, 'RIGHT SCREEN:' );
+				drawText( 30, 90, 'Pixel offset: ' + projectedOffset );
+			}
+			
+			redraw();
+			
+        </script>
+    </body>
+</html>
